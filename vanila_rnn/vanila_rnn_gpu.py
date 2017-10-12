@@ -41,7 +41,7 @@ def phrase_to_index(lang, phrase):
 def phrase_to_variable(lang, phrase):
     indicies = phrase_to_index(lang, phrase)
     indicies.append(EOS_token)
-    var = Variable(torch.LongTensor(indicies).view(-1,1))
+    var = Variable(torch.LongTensor(indicies).view(-1,1)).gpu()
     return var
 
 def get_word_vectors(input_lang, ouput_lang, pair):
@@ -80,7 +80,7 @@ class SimpleEncoder(nn.Module):
         return output, hidden
 
     def init_hidden(self):
-        hidden = Variable(torch.zeros(self.n_layer, self.batch, self.hidden_size))
+        hidden = Variable(torch.zeros(self.n_layer, self.batch, self.hidden_size)).gpu()
         return hidden
 
 class SimpleDecoder(nn.Module):
@@ -118,7 +118,7 @@ class SimpleDecoder(nn.Module):
 
 def train(encoder, decoder, encoder_optimizer, decoder_optimizer, encoder_input, target, criterion):
     encoder_init_hidden = encoder.init_hidden()
-    decoder_input = Variable(torch.LongTensor([SOS_token]))
+    decoder_input = Variable(torch.LongTensor([SOS_token])).gpu()
 
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
@@ -135,7 +135,7 @@ def train(encoder, decoder, encoder_optimizer, decoder_optimizer, encoder_input,
         # decoder_output is a variable
         topv, topi = decoder_output.data.topk(1)
         predicted = topi[0][0]
-        decoder_input = Variable(torch.LongTensor([predicted]))
+        decoder_input = Variable(torch.LongTensor([predicted])).gpu()
         loss += criterion(decoder_output, target[di])
         if predicted == EOS_token:
             break

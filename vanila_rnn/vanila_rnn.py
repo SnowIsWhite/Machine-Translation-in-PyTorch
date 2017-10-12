@@ -117,13 +117,13 @@ class SimpleDecoder(nn.Module):
         return hidden
 
 def train(encoder, decoder, encoder_optimizer, decoder_optimizer, encoder_input, target, criterion):
-    encoder_init_hidden = encoder.init_hidden()
+    encoder_hidden = encoder.init_hidden()
     decoder_input = Variable(torch.LongTensor([SOS_token]))
 
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
 
-    encoder_output, encoder_hidden = encoder(encoder_input, encoder_init_hidden)
+    encoder_output, encoder_hidden = encoder(encoder_input, encoder_hidden)
     decoder_hidden = decoder.init_hidden(encoder_hidden)
 
     context_vector = encoder_hidden
@@ -145,8 +145,25 @@ def train(encoder, decoder, encoder_optimizer, decoder_optimizer, encoder_input,
 
     return loss.data[0]/ target_length
 
-def test():
-    pass
+def test(encoder, decoder, input_sentence, input_lang, output_lang, max_length = MAX_LENGTH):
+    #make into variable
+    #encoder_input =
+    encoder_hidden = encoder.init_hidden()
+    encoder_output, encoder_hidden = encoder(encoder_input, encoder_hidden)
+    decoder_hidden = decoder.init_hidden(encoder_hidden)
+    context_vector = encoder_hidden
+
+    decoder_input = Variable(torch.LongTensor([SOS_token]))
+    for di in range(max_length):
+        decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, context_vector)
+        topv, topi = decoder_output.data.topk(1)
+        predicted = topi[0][0]
+        decoder_input = Variable(torch.LongTensor([predicted]))
+        if predicted == EOS_token:
+            break
+        else:
+            decoded_words.append(output_lang.index2word[predicted])
+    return decoded_words
 
 if __name__ == "__main__":
     input_lang, output_lang, pair = load_data()
@@ -196,6 +213,9 @@ if __name__ == "__main__":
                 plot_loss_total = 0
     showPlot(plot_losses)
 
+    #test
+    #for sentences, get results
+    MAX_LENGTH = 30
     # save model
     torch.save(encoder.save_dict(), './models')
     torch.save(decoder.save_dict(), './models')
