@@ -10,6 +10,7 @@ import re
 import os
 import sys
 import time
+import pickle
 import numpy as np
 import torch
 import torch.nn as nn
@@ -217,5 +218,5 @@ if __name__ == "__main__":
     #for sentences, get results
     MAX_LENGTH = 30
     # save model
-    torch.save(encoder.save_dict(), './models')
-    torch.save(decoder.save_dict(), './models')
+    torch.save(encoder.state_dict(), './models')
+    torch.save(decoder.state_dict(), './models')

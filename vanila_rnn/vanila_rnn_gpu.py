@@ -10,6 +10,7 @@ import re
 import os
 import sys
 import time
+import pickle
 import numpy as np
 import torch
 import torch.nn as nn
@@ -41,7 +42,7 @@ def phrase_to_index(lang, phrase):
 def phrase_to_variable(lang, phrase):
     indicies = phrase_to_index(lang, phrase)
     indicies.append(EOS_token)
-    var = Variable(torch.LongTensor(indicies).view(-1,1)).gpu()
+    var = Variable(torch.LongTensor(indicies).view(-1,1)).cuda()
     return var
 
 def get_word_vectors(input_lang, ouput_lang, pair):
@@ -80,7 +81,7 @@ class SimpleEncoder(nn.Module):
         return output, hidden
 
     def init_hidden(self):
-        hidden = Variable(torch.zeros(self.n_layer, self.batch, self.hidden_size)).gpu()
+        hidden = Variable(torch.zeros(self.n_layer, self.batch, self.hidden_size)).cuda()
         return hidden
 
 class SimpleDecoder(nn.Module):
@@ -118,7 +119,7 @@ class SimpleDecoder(nn.Module):
 
 def train(encoder, decoder, encoder_optimizer, decoder_optimizer, encoder_input, target, criterion):
     encoder_init_hidden = encoder.init_hidden()
-    decoder_input = Variable(torch.LongTensor([SOS_token])).gpu()
+    decoder_input = Variable(torch.LongTensor([SOS_token])).cuda()
 
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
@@ -135,7 +136,7 @@ def train(encoder, decoder, encoder_optimizer, decoder_optimizer, encoder_input,
         # decoder_output is a variable
         topv, topi = decoder_output.data.topk(1)
         predicted = topi[0][0]
-        decoder_input = Variable(torch.LongTensor([predicted])).gpu()
+        decoder_input = Variable(torch.LongTensor([predicted])).cuda()
         loss += criterion(decoder_output, target[di])
         if predicted == EOS_token:
             break
@@ -160,8 +161,8 @@ if __name__ == "__main__":
     print_every = 1000
     plot_every = 100
 
-    encoder = SimpleEncoder(input_lang.n_words, embedding_size, batch_size, hidden_size)
-    decoder = SimpleDecoder(output_lang.n_words, embedding_size, batch_size, hidden_size)
+    encoder = SimpleEncoder(input_lang.n_words, embedding_size, batch_size, hidden_size).cuda()
+    decoder = SimpleDecoder(output_lang.n_words, embedding_size, batch_size, hidden_size).cuda()
 
     criterion = nn.CrossEntropyLoss()
     encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
@@ -197,5 +198,5 @@ if __name__ == "__main__":
     showPlot(plot_losses)
 
     # save model
-    torch.save(encoder.save_dict(), './models')
-    torch.save(decoder.save_dict(), './models')
+    torch.save(encoder.state_dict(), './encoder_model.pkl')
+    torch.save(decoder.state_dict(), './decoder_model.pkl')
