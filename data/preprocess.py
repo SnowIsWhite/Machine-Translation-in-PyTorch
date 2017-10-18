@@ -1,26 +1,24 @@
-"""Prerpocess parallel data."""
-
-"""Make json files of word2index and index2word."""
+"""Preprocess parallel data."""
 import json
 import os
 import re
-import unicodedata
+import random
+import torch
+import torch.nn.utils.rnn as rnn
+from torch.autograd import Variable
 
-SOS_token = 0
-EOS_token = 1
-UNK_token = 2
-
-data1 = './kor-eng/kor.txt'
-data2_en = './news-crawl-koen-v01/news-crawl-koen-v01.en'
-data2_ko = './news-crawl-koen-v01/news-crawl-koen-v01.ko'
+PAD_token = 0
+SOS_token = 1
+EOS_token = 2
+UNK_token = 3
 
 class Preprocess:
     def __init__(self, name):
         self.name = name
         self.word2index = {}
-        self.index2word = {0: 'SOS', 1: 'EOS', 2: 'UNK'}
+        self.index2word = {0: 'PAD', 1: 'SOS', 2: 'EOS', 3: 'UNK'}
         self.word2count = {}
-        self.n_words = 3
+        self.n_words = 4
 
     def addSentence(self, sentence):
         for word in sentence.split(' '):
@@ -35,37 +33,26 @@ class Preprocess:
         else:
             self.word2count[word] += 1
 
-"""
-# Turn a Unicode string to plain ASCII, thanks to
-# http://stackoverflow.com/a/518232/2809427
-def unicodeToAscii(s):
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', s)
-        if unicodedata.category(c) != 'Mn'
-        )
-"""
-# Lowercase, trim, and remove non-letter characters
 def normalizeString(s):
     #s = unicodeToAscii(s.lower().strip())
     s = s.lower().strip()
-    s = re.sub(r"([.!?])", r" \1", s)
-    #s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+    s = re.sub(r"([.!?':;])", r" \1", s)
     s = s.strip()
     return s
 
-def reverse_sentence(s):
+def reverseSentence(s):
     reverse = []
     for word in s.split():
         reverse.append(word)
     return ' '.join(reverse)
 
-def make_pair(sa1, sa2):
-    pair = []
+def makePair(sa1, sa2):
+    pairs = []
     for idx, s in enumerate(sa1):
-        pair.append([s, sa2[idx]])
-    return pair
+        pairs.append([s, sa2[idx]])
+    return pairs
 
-def read_data(data_dir):
+def readData(data_dir):
     lang1 = []
     lang2 = []
     with open(data_dir, 'r') as f:
@@ -73,25 +60,22 @@ def read_data(data_dir):
             lang = line.split('\t')
             lang1.append(lang[0])
             lang2.append(lang[1])
-    """
-    with open(data2_en, 'r') as f:
-        for line in f.readlines():
-            eng.append(line)
-
-    with open(data2_ko, 'r') as f:
-        for line in f.readlines():
-            kor.append(line)
-    """
     return lang1, lang2
 
-def prepare_data(data_dir):
-    lang1, lang2 = read_data(data_dir)
-    lang1 = [normalizeString(s) for s in lang1]
-    lang2 = [normalizeString(s) for s in lang2]
+def prepareData(data_dir, MAX_LENGTH):
+    pre_lang1, pre_lang2 = readData(data_dir)
+    lang1 = []
+    lang2 = []
+    for idx, s in enumerate(pre_lang1):
+        s = normalizeString(s)
+        if len(s.split()) > MAX_LENGTH:
+            continue
+        lang1.append(s)
+        lang2.append(normalizeString(pre_lang2[idx]))
     reversed_lang1 = []
     for s in lang1:
-        reversed_lang1.append(reverse_sentence(s))
-    pairs = make_pair(reversed_lang1, lang2)
+        reversed_lang1.append(reverseSentence(s))
+    pairs = makePair(reversed_lang1, lang2)
     print("Counting words...")
     input_lang = Preprocess('lang1')
     output_lang = Preprocess('lang2')
@@ -100,7 +84,104 @@ def prepare_data(data_dir):
         output_lang.addSentence(pair[1])
     return input_lang, output_lang, pairs
 
-"""
-if __name__ == "__main__":
-    prepare_data()
-"""
+def phraseToIndex(lang, phrase):
+    return [lang.word2index[word] for word in phrase.split()]
+
+def testphraseToIndex(lang, phrase):
+    indicies = []
+    for word in phrase.split():
+        if word not in lang.word2index:
+            indicies.append(UNK_token)
+        else:
+            indicies.append(lang.word2index[word])
+    return indicies
+
+def phraseToTensor(lang, batch_data, GPU_use):
+    indicies = [phraseToIndex(lang, phrase) for phrase in batch_data]
+    for phrase in indicies:
+        phrase.append(EOS_token)
+    indicies.sort(key=len, reverse=True)
+    lengths = [len(phrase) for phrase in indicies]
+    longest_seq_len = len(indicies[0])
+    tensor = torch.LongTensor(len(indicies), longest_seq_len)
+    for idx, phrase in enumerate(indicies):
+        while len(phrase) < longest_seq_len:
+            phrase.append(PAD_token)
+        tensor[idx] = torch.LongTensor(phrase)
+    tensor_var = Variable(tensor)
+    if GPU_use:
+        tensor_var = tensor_var.cuda()
+    return tensor_var, lengths
+
+def dataToIndex(input_lang, output_lang, pairs, batch_size, GPU_use):
+    # group pairs by batch size
+    cnt = 1
+    batch_lang1 = []
+    batch_lang2 = []
+    input_vars = []
+    target_vars = []
+    input_lengths = []
+    target_lengths = []
+    for pair in pairs:
+        batch_lang1.append(pair[0])
+        batch_lang2.append(pair[1])
+        if cnt % batch_size == 0:
+            v, l = phraseToTensor(input_lang, batch_lang1, GPU_use)
+            input_vars.append(v)
+            input_lengths.append(l)
+            v, l = phraseToTensor(output_lang, batch_lang2, GPU_use)
+            target_vars.append(v)
+            target_lengths.append(l)
+            batch_lang1 = []
+            batch_lang2 = []
+            cnt = 0
+        cnt += 1
+    return input_vars, target_vars, input_lengths, target_lengths
+
+def testDataToIndex(input_lang, output_lang, pairs, GPU_use):
+    test_input = []
+    test_target = []
+    for pair in pairs:
+        input_ = torch.LongTensor([testphraseToIndex(input_lang, pair[0])])
+        target_ = torch.LongTensor([testphraseToIndex(output_lang, pair[1])])
+        input_ = Variable(input_)
+        target_ = Variable(target_)
+        if GPU_use:
+            input_ = input_.cuda()
+            target_ = target_.cuda()
+        test_input.append(input_)
+        test_target.append(target_)
+    return test_input, test_target
+
+def getTrainAndTestSet(data_dir, batch_size, MAX_LENGTH, GPU_use):
+    # load data
+    input_lang, output_lang, pairs = prepareData(data_dir, MAX_LENGTH)
+    # shuffle pair
+    number_of_data = len(pairs)
+    random.shuffle(pairs)
+
+    # split into train and test set
+    division = (int)(number_of_data / batch_size)
+    train_portion = (int)(division * 0.9)
+    test_portion = division - train_portion
+    train_portion = batch_size * train_portion
+    test_portion = batch_size * test_portion
+    train_data = pairs[:train_portion]
+    test_data = pairs[(train_portion+1):train_portion+test_portion+1]
+
+    # get train dataset
+    train_input, train_target, train_input_lengths, train_target_lengths\
+     = dataToIndex(input_lang, output_lang, train_data,
+    batch_size, GPU_use)
+
+    # get test dataset
+    test_input, test_target = testDataToIndex(input_lang, output_lang,
+     test_data, GPU_use)
+
+    return train_input, train_target, test_input, test_target, input_lang,\
+    output_lang, train_input_lengths, train_target_lengths
+
+def toPackedVariable(variable, lengths):
+    # variable dim: B, S, *
+    packed_vars = rnn.pack_padded_sequence(variable, lengths)
+    return packed_vars

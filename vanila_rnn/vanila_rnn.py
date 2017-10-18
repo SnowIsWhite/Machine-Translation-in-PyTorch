@@ -1,6 +1,7 @@
 """seq2seq neural machine translation with RNN.
 
-I referred to PyTorch Tutorial http://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html.
+I borrowed some code from PyTorch Tutorial
+http://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html.
 Aspects:
 - GRU unit
 - reversed input sequence
@@ -23,16 +24,14 @@ sys.path.append('../')
 from preprocess import *
 from utils import *
 
-# initial variables
-SOS_token = 0
-EOS_token = 1
-UNK_token = 2
-batch_size = 1 #sentence
+SOS_token = 1
+EOS_token = 2
+UNK_token = 3
 
 # load data
-def load_data(data_dir = './data/kor-eng/kor.txt'):
+def load_data(data_dir = '../data/kor-eng/kor.txt'):
     data = Preprocess('vanila-nmt')
-    input_lang, output_lang, pair = prepare_data(data_dir)
+    input_lang, output_lang, pair = prepareData(data_dir)
     return input_lang, output_lang, pair
 
 # change textdata into vectors of indicies
@@ -110,6 +109,7 @@ class SimpleDecoder(nn.Module):
         hidden = prev_hidden + context_vector
         #apply gru unit
         output, hidden = self.gru(embedded, hidden)
+        # output: seq_len, batch, hidden_size: seq_len is a word here (len 1)
         output = self.softmax(self.out(output.squeeze(0))) # batch, dic_size
         return output, hidden
 
@@ -146,11 +146,11 @@ def train(encoder, decoder, encoder_optimizer, decoder_optimizer, encoder_input,
 
     return loss.data[0]/ target_length
 
-def test(encoder, decoder, input_sentence, input_lang, output_lang, max_length = MAX_LENGTH):
+def test(encoder, decoder, input_sentence, input_lang, output_lang, MAX_LENGTH):
     #make into variable
     #encoder_input =
     encoder_hidden = encoder.init_hidden()
-    encoder_output, encoder_hidden = encoder(encoder_input, encoder_hidden)
+    encoder_output, encoder_hidden = encoder(input_sentence, encoder_hidden)
     decoder_hidden = decoder.init_hidden(encoder_hidden)
     context_vector = encoder_hidden
 
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     embedding_size = 500
     hidden_size = 1000
     num_epochs = 100
-    learning_rate = 0.0001 # decrease after some epochs
+    learning_rate = 0.0001
     print_every = 1000
     plot_every = 100
 
@@ -218,5 +218,5 @@ if __name__ == "__main__":
     #for sentences, get results
     MAX_LENGTH = 30
     # save model
-    torch.save(encoder.state_dict(), './models')
-    torch.save(decoder.state_dict(), './models')
+    torch.save(encoder.state_dict(), './encoder_models.pkl')
+    torch.save(decoder.state_dict(), './decoder_models.pkl')
