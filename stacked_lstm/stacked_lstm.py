@@ -134,6 +134,8 @@ GPU_use):
         loss += criterion(decoder_output, target_variable[0][i])
         decoder_input = Variable(torch.LongTensor([predicted] * batch_size))
         decoder_input = decoder_input.unsqueeze(0)
+        if GPU_use:
+            decoder_input = decoder_input.cuda()
         if predicted == EOS_token:
             break
     loss.backward()
