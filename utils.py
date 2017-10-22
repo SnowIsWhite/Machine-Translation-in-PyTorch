@@ -1,5 +1,7 @@
 import time
 import math
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -36,8 +38,6 @@ def beamSearch(topv, topi, prev_array, prev_prob):
     prob1 = temp_prob + topv[0][0]
     temp_prob = prev_prob
     prob2 = temp_prob + topv[0][1]
-    print(arr1)
-    print(arr2)
     return [(arr1, prob1), (arr2, prob2)]
 
 def saveTranslatedResults(results, fname):
