@@ -250,6 +250,6 @@ if __name__ == "__main__":
         TEST_MAXLENGTH)
         translated = [output_lang.index2word[idx] for idx in translated_idx]
         results.append((query, translated))
-    saveTranslatedResults(results, 'lstm_result.txt')
+    saveTranslatedResults(results, 'vanilaRNN_result.txt')
     # turn off training mode
     print("Test done.")
