@@ -125,7 +125,7 @@ target_variable, criterion, GPU_use):
     # target_variable: batch_size, seq_len
     target_length = target_variable.size()[1]
     for di in range(target_length):
-        target = target_variable[:,:di+1]
+        target = target_variable[:,di]
         decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden,
         context_vector)
         topv, topi = decoder_output.data.topk(1)
@@ -233,8 +233,6 @@ if __name__ == "__main__":
                 plot_loss_avg = plot_loss_total / (plot_every*1.)
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
-            break
-        break
     showPlot(plot_losses, 'vanilaRNN')
     print("Training done.")
 
