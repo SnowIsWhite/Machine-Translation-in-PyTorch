@@ -125,7 +125,7 @@ target_variable, criterion, GPU_use):
     # target_variable: batch_size, seq_len
     target_length = target_variable.size()[1]
     for di in range(target_length):
-        target = target_variable[:,[di]]
+        target = target_variable[:,:di+1]
         decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden,
         context_vector)
         topv, topi = decoder_output.data.topk(1)
