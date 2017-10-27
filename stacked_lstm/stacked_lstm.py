@@ -83,7 +83,7 @@ class LSTMDecoder(nn.Module):
         output, (h, c) = self.lstm(embedded, ((prev_hidden + context_vector),
          prev_cell))
         # output: seq_len, batch, N where seq_len is 1
-        output = output.squeeze(0) # batch, N
+        output = torch.squeeze(output, 0) # batch, N
         out = self.linear(output)
         # out: batch, num_embeddings (batch = 1)
         out = self.softmax(out)
@@ -118,7 +118,7 @@ GPU_use):
 
     batch_size = encoder_input.size()[0] # 1
     decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size))
-    decoder_input = decoder_input.unsqueeze(0)
+    decoder_input = torch.unsqueeze(decoder_input,0)
     if GPU_use:
         decoder_input.cuda()
 
@@ -131,9 +131,10 @@ GPU_use):
         topv, topi = decoder_output.data.topk(2)
         # topi : batch, 1
         predicted = topi[0][0]
+        # target_variable[:,[di]]?
         loss += criterion(decoder_output, target_variable[0][i])
         decoder_input = Variable(torch.LongTensor([predicted] * batch_size))
-        decoder_input = decoder_input.unsqueeze(0)
+        decoder_input = torch.unsqueeze(decoder_input, 0)
         if GPU_use:
             decoder_input = decoder_input.cuda()
         if predicted == EOS_token:
@@ -163,7 +164,7 @@ TEST_MAXLENGTH=30):
     context_vector)
 
     decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size))
-    decoder_input = decoder_input.unsqueeze(0)
+    decoder_input = torch.unsqueeze(decoder_input, 0)
     if GPU_use:
         decoder_input = decoder_input.cuda()
 
@@ -181,7 +182,7 @@ TEST_MAXLENGTH=30):
     res_prob2 += topv[0][1]
     for i in range(TEST_MAXLENGTH-1):
         decoder_input = Variable(torch.LongTensor([res_array1[-1]]*batch_size))
-        decoder_input = decoder_input.unsqueeze(0)
+        decoder_input = torch.unsqueeze(decoder_input, 0)
         if GPU_use:
             decoder_input = decoder_input.cuda()
         decoder_output, decoder_hidden, decoder_cell = decoder(decoder_input,
@@ -195,7 +196,7 @@ TEST_MAXLENGTH=30):
         list1 = beamSearch(topv, topi, res_array1, res_prob1)
 
         decoder_input = Variable(torch.LongTensor([res_array2[-1]]*batch_size))
-        decoder_input = decoder_input.unsqueeze(0)
+        decoder_input = torch.unsqueeze(deocder_input, 0)
         if GPU_use:
             decoder_input = decoder_input.cuda()
         decoder_output, _, _ = decoder(decoder_input, decoder_hidden,
@@ -274,7 +275,7 @@ if __name__ == "__main__":
                 print_loss_avg = print_loss_total / print_every*1.
                 print_loss_total = 0
                 print('%s (%d %d%%) %.4f' % ((timeSince(start,iter_cnt/total_iter)),
-                iter_cnt, iter_cnt/total_tier * 100, print_loss_avg))
+                iter_cnt, iter_cnt/total_iter * 100, print_loss_avg))
 
             if iter_cnt % plot_every == 0:
                 plot_loss_avg = plot_loss_total / (plot_every*1.)
