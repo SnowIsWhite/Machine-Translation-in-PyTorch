@@ -1,3 +1,4 @@
+import os
 import time
 import math
 import matplotlib
@@ -45,3 +46,27 @@ def saveTranslatedResults(results, fname):
         for tup in results:
             f.write(' '.join(tup[0]) + '\n')
             f.write(' '.join(tup[1]) + '\n\n')
+
+def showAttention(input_sentence, output_words, attentions):
+    output = []
+    for idx, _ in enumerate(output_words):
+        output.append(output_words[idx].decode('utf-8'))
+
+    if not os.path.exists('./plt_results'):
+        os.mkdir('./plt_results')
+    # Set up figure with colorbar
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(attentions.numpy(), cmap='bone')
+    fig.colorbar(cax)
+
+    # Set up axes
+    ax.set_xticklabels([''] + input_sentence.split(' ') + ['<EOS>'], rotation=90)
+    ax.set_yticklabels([''] + output)
+
+    # Show label at every tick
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+
+    plt.savefig('./plt_results/' + input_sentence + '.png')
+    plt.close()
